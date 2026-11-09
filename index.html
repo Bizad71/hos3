@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تقویم کارها</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <div class="title">
+    <h1 id="monthTitle"></h1>
+    <span id="monthStat" class="stat"></span>
+  </div>
+  <div class="tools">
+    <button id="btnBackup" class="ghost" title="ذخیره‌ی یک نسخه پشتیبان از همه کارها">پشتیبان‌گیری</button>
+    <label class="ghost btn" title="بازیابی از فایل پشتیبان">بازیابی<input id="fileRestore" type="file" accept=".json" hidden></label>
+    <button id="btnToday" class="ghost">امروز</button>
+    <div class="arrows" dir="ltr">
+      <button id="btnNext" title="ماه بعد">&#10094;</button>
+      <button id="btnPrev" title="ماه قبل">&#10095;</button>
+    </div>
+  </div>
+</header>
+
+<main class="calwrap">
+  <div class="weekdays" id="weekdays"></div>
+  <div class="grid" id="grid"></div>
+</main>
+
+<!-- پنجره شناور ثبت و ویرایش کار -->
+<div class="overlay" id="ov" hidden>
+  <div class="dlg" id="dlg" role="dialog" aria-modal="true">
+    <div class="dlg-head">
+      <h2 id="dlgTitle">کار جدید</h2>
+      <button class="x" id="btnClose" title="بستن">&times;</button>
+    </div>
+
+    <div class="form">
+      <label class="full">نام مرکز / بیمارستان
+        <input id="fName" placeholder="مثلاً بیمارستان امام رضا - مشهد">
+      </label>
+
+      <label>نوع مرکز
+        <select id="fType">
+          <option>بیمارستان</option>
+          <option>مرکز تصویربرداری</option>
+        </select>
+      </label>
+      <label>وضعیت
+        <select id="fStatus">
+          <option>آماده تماس</option>
+          <option>تماس بی‌پاسخ</option>
+          <option>کاتالوگ ارسال شد</option>
+          <option>پیگیری</option>
+          <option>بدون مانیتور تشخیصی</option>
+          <option>قطع همکاری</option>
+        </select>
+      </label>
+
+      <label>استان
+        <input id="fProvince" list="provinces" placeholder="مثلاً خراسان رضوی">
+      </label>
+      <label>شهر
+        <input id="fCity">
+      </label>
+
+      <label>تلفن مرکز
+        <input id="fPhone" inputmode="tel" dir="ltr" class="ltr">
+      </label>
+      <label>تلفن دوم / داخلی
+        <input id="fPhone2" inputmode="tel" dir="ltr" class="ltr">
+      </label>
+
+      <label>نام مسئول
+        <input id="fContact" placeholder="مثلاً مهندس رضایی">
+      </label>
+      <label>سمت
+        <input id="fRole" list="roles" placeholder="مثلاً مسئول تجهیزات پزشکی">
+      </label>
+
+      <label>موبایل مسئول
+        <input id="fMobile" inputmode="tel" dir="ltr" class="ltr">
+      </label>
+      <label>بخش مرتبط
+        <input id="fDept" list="depts" placeholder="مثلاً رادیولوژی / اتاق عمل">
+      </label>
+
+      <div class="full datebox">
+        <span class="lbl">زمان انجام</span>
+        <div class="daterow">
+          <button type="button" id="fDate" class="datebtn" data-value="">انتخاب تاریخ</button>
+          <input id="fTime" type="time" title="ساعت (اختیاری)">
+        </div>
+        <div class="picker" id="picker" hidden>
+          <div class="pk-head">
+            <button type="button" id="pkNext">&#10094;</button>
+            <b id="pkTitle"></b>
+            <button type="button" id="pkPrev">&#10095;</button>
+          </div>
+          <div class="pk-wd" id="pkWd"></div>
+          <div class="pk-grid" id="pkGrid"></div>
+          <div class="pk-hint">عدد زیر هر روز = تعداد کارهای همان روز</div>
+        </div>
+      </div>
+
+      <label class="full">آدرس
+        <input id="fAddr">
+      </label>
+
+      <label class="full">یادداشت و سابقه تماس
+        <textarea id="fNotes" rows="4" placeholder="مثلاً 1405/08/16 بی‌پاسخ - 1405/08/18 کاتالوگ در بله ارسال شد"></textarea>
+      </label>
+
+      <label class="full chk">
+        <input id="fDone" type="checkbox"> انجام شد
+      </label>
+    </div>
+
+    <div class="dlg-foot">
+      <button id="btnSave" class="primary">ذخیره</button>
+      <button id="btnCancel" class="ghost">انصراف</button>
+      <button id="btnDelete" class="danger" hidden>حذف</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="provinces"></datalist>
+<datalist id="roles">
+  <option>مسئول تجهیزات پزشکی</option>
+  <option>مهندس پزشکی</option>
+  <option>مسئول رادیولوژی</option>
+  <option>سرپرستار اتاق عمل</option>
+  <option>مدیر بیمارستان</option>
+  <option>مدیر مالی</option>
+  <option>مسئول خرید</option>
+</datalist>
+<datalist id="depts">
+  <option>رادیولوژی</option>
+  <option>اتاق عمل</option>
+  <option>تصویربرداری</option>
+  <option>پزشکی هسته‌ای</option>
+  <option>ماموگرافی</option>
+  <option>تجهیزات پزشکی</option>
+</datalist>
+
+<script src="script.js"></script>
+</body>
+</html>
