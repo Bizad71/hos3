@@ -60,7 +60,21 @@ const byDate = (exceptId = null) => {
 };
 const level = c => c === 0 ? 0 : c <= 5 ? 1 : c <= 10 ? 2 : c <= 15 ? 3 : 4;
 const statusClass = s => /پاسخ/.test(s) ? 's-na' : /کاتالوگ/.test(s) ? 's-cat' : /قطع|بدون/.test(s) ? 's-cut' : /پیگیری/.test(s) ? 's-fu' : '';
-const cmp = (a, b) => (a.time || '99:99').localeCompare(b.time || '99:99') || a.name.localeCompare(b.name, 'fa');
+const statusOrder = s => {
+  const v = String(s || '');
+  if (/کاتالوگ/.test(v)) return 0;
+  if (/پاسخ/.test(v)) return 1;
+  if (/آماده تماس/.test(v)) return 2;
+  return 3;
+};
+const cmp = (a, b) => statusOrder(a.status) - statusOrder(b.status) ||
+  (a.time || '99:99').localeCompare(b.time || '99:99') || a.name.localeCompare(b.name, 'fa');
+const statusCounts = list => ({
+  catalog: list.filter(t => /کاتالوگ/.test(t.status || '')).length,
+  unanswered: list.filter(t => /پاسخ/.test(t.status || '')).length,
+  ready: list.filter(t => /آماده تماس/.test(t.status || '')).length,
+  other: list.filter(t => !/کاتالوگ|پاسخ|آماده تماس/.test(t.status || '')).length
+});
 const chipHtml = t => `<button class="chip ${statusClass(t.status)} ${t.done ? 'done' : ''}" data-id="${t.id}" title="${esc(t.name)}"><i></i><span>${esc(t.name)}</span></button>`;
 
 /* ================= رسم ماه ================= */
@@ -114,6 +128,7 @@ function openEditor(id, date) {
   setDate(t ? t.date : (date || key(TY, TM, TD)));
   $('#btnDelete').hidden = !t;
   $('#dayList')?.remove();
+  $('#statsPanel')?.remove();
   $('.form').hidden = false; $('.dlg-foot').hidden = false;
   $('#picker').hidden = true;
   showOverlay();
@@ -125,6 +140,7 @@ function openDayList(k) {
   $('#dlgTitle').textContent = `کارهای ${dateLabel(k)} (${pd(list.length)} کار)`;
   $('.form').hidden = true; $('.dlg-foot').hidden = true;
   $('#dayList')?.remove();
+  $('#statsPanel')?.remove();
   const box = document.createElement('div');
   box.id = 'dayList'; box.className = 'daylist';
   box.innerHTML = (list.map(chipHtml).join('') || '<div class="stat">برای این روز کاری ثبت نشده.</div>') +
@@ -177,6 +193,68 @@ function shiftPicker(delta) {
   pv = [y, m]; renderPicker();
 }
 
+
+/* ================= جستجو و آمار ================= */
+const SEARCH_FIELDS = ['name','type','status','province','city','phone','phone2','contact','role','mobile','dept','addr','notes','date'];
+function searchTasks(q) {
+  const needle = q.trim().toLocaleLowerCase('fa');
+  if (!needle) return [];
+  return tasks.filter(t => SEARCH_FIELDS.some(k => String(t[k] ?? '').toLocaleLowerCase('fa').includes(needle))).sort(cmp);
+}
+function renderSearchResults(q) {
+  const panel = $('#searchResults');
+  const found = searchTasks(q);
+  if (!q.trim()) { panel.hidden = true; panel.innerHTML = ''; return; }
+  panel.hidden = false;
+  panel.innerHTML = found.length
+    ? found.slice(0, 30).map(t => `<button class="search-result" data-search-id="${esc(t.id)}"><strong>${esc(t.name)}</strong><span>${esc(t.status || 'بدون وضعیت')} · ${esc(t.city || '')} · ${esc(t.date || '')}</span></button>`).join('') +
+      (found.length > 30 ? `<div class="search-foot">${pd(found.length)} نتیجه؛ ۳۰ مورد اول نمایش داده شده</div>` : '')
+    : '<div class="search-empty">موردی پیدا نشد.</div>';
+}
+function showStats() {
+  const counts = statusCounts(tasks);
+  const monthMap = new Map(), dateMap = new Map();
+  for (const t of tasks) {
+    const [y,m] = parseKey(t.date);
+    const mk = `${y}/${pad(m)}`;
+    monthMap.set(mk, (monthMap.get(mk) || 0) + 1);
+    dateMap.set(t.date, (dateMap.get(t.date) || 0) + 1);
+  }
+  const months = [...monthMap.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+  const dates = [...dateMap.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+  const maxMonth = Math.max(1, ...months.map(x => x[1]));
+  const maxStatus = Math.max(1, counts.catalog, counts.unanswered, counts.ready, counts.other);
+  const maxDateCount = Math.max(0, ...dates.map(x => x[1]));
+  const minDateCount = dates.length ? Math.min(...dates.map(x => x[1])) : 0;
+  const busiest = dates.filter(x => x[1] === maxDateCount);
+  const quietest = dates.filter(x => x[1] === minDateCount);
+  $('#dlgTitle').textContent = 'آمار کارها';
+  $('.form').hidden = true; $('.dlg-foot').hidden = true;
+  $('#dayList')?.remove(); $('#statsPanel')?.remove();
+  const panel = document.createElement('div');
+  panel.id = 'statsPanel'; panel.className = 'stats-panel';
+  const statusRows = [
+    ['کاتالوگ ارسال شد', counts.catalog, 'bar-green'],
+    ['تماس بی‌پاسخ', counts.unanswered, 'bar-orange'],
+    ['آماده تماس', counts.ready, 'bar-blue'],
+    ['سایر وضعیت‌ها', counts.other, 'bar-gray']
+  ];
+  panel.innerHTML = `
+    <div class="stats-total"><strong>${pd(tasks.length)}</strong><span>کل کارهای ثبت‌شده</span></div>
+    <section class="stats-section"><h3>تفکیک وضعیت کارها</h3>
+      ${statusRows.map(([label,n,cls]) => `<div class="bar-row"><span>${label}</span><div class="bar-track"><i class="${cls}" style="width:${n/maxStatus*100}%"></i></div><b>${pd(n)}</b></div>`).join('')}
+    </section>
+    <section class="stats-section"><h3>روزهای پرتراکم و کم‌کار</h3>
+      ${dates.length ? `<p><b>بیشترین کار:</b> ${busiest.map(x => `${dateLabel(x[0])} (${pd(x[1])})`).join('، ')}</p>
+      <p><b>کمترین کار در روزهای دارای فعالیت:</b> ${quietest.map(x => `${dateLabel(x[0])} (${pd(x[1])})`).join('، ')}</p>` : '<p class="stat">هنوز کاری ثبت نشده است.</p>'}
+    </section>
+    <section class="stats-section"><h3>تعداد کارهای هر ماه</h3>
+      ${months.length ? months.map(([mk,n]) => { const [y,m]=mk.split('/').map(Number); return `<div class="bar-row month-row"><span>${MONTHS[m-1]} ${pd(y)}</span><div class="bar-track"><i class="bar-blue" style="width:${n/maxMonth*100}%"></i></div><b>${pd(n)}</b></div>`; }).join('') : '<p class="stat">داده‌ای برای نمایش وجود ندارد.</p>'}
+    </section>`;
+  $('#dlg').appendChild(panel);
+  showOverlay();
+}
+
 /* ================= پشتیبان‌گیری ================= */
 function backup() {
   const blob = new Blob([JSON.stringify(tasks, null, 1)], { type: 'application/json' });
@@ -212,9 +290,11 @@ $('#fileRestore').onchange = e => { if (e.target.files[0]) restore(e.target.file
 
 $('#grid').addEventListener('click', e => {
   const add = e.target.closest('[data-add]'), chip = e.target.closest('.chip'), more = e.target.closest('[data-more]');
+  const day = e.target.closest('.day[data-date]');
   if (add) openEditor(null, add.dataset.add);
   else if (chip) openEditor(chip.dataset.id);
-  else if (more && more.classList.contains('zero') === false) openDayList(more.dataset.more);
+  else if (more && !more.classList.contains('zero')) openDayList(more.dataset.more);
+  else if (day) openDayList(day.dataset.date);
 });
 $('#dlg').addEventListener('click', e => {
   const chip = e.target.closest('#dayList .chip'), add = e.target.closest('#dayList [data-add]');
@@ -247,6 +327,19 @@ document.addEventListener('keydown', e => {
     if (e.key === 'ArrowLeft') shiftMonth(1);       // در صفحه‌ی راست‌به‌چپ، چپ = ماه بعد
     if (e.key === 'ArrowRight') shiftMonth(-1);
   }
+});
+
+$('#btnStats').onclick = showStats;
+$('#globalSearch').addEventListener('input', e => renderSearchResults(e.target.value));
+$('#searchResults').addEventListener('click', e => {
+  const hit = e.target.closest('[data-search-id]');
+  if (!hit) return;
+  $('#searchResults').hidden = true;
+  $('#globalSearch').value = '';
+  openEditor(hit.dataset.searchId);
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.top')) $('#searchResults').hidden = true;
 });
 
 render();

@@ -16,6 +16,8 @@
     <span id="monthStat" class="stat"></span>
   </div>
   <div class="tools">
+    <input id="globalSearch" class="searchbox" type="search" placeholder="جستجو بین نام، تلفن، شهر، استان و..." autocomplete="off" aria-label="جستجو بین کارها">
+    <button id="btnStats" class="ghost">آمار</button>
     <button id="btnBackup" class="ghost" title="ذخیره‌ی یک نسخه پشتیبان از همه کارها">پشتیبان‌گیری</button>
     <label class="ghost btn" title="بازیابی از فایل پشتیبان">بازیابی<input id="fileRestore" type="file" accept=".json" hidden></label>
     <button id="btnToday" class="ghost">امروز</button>
@@ -24,6 +26,7 @@
       <button id="btnPrev" title="ماه قبل">&#10095;</button>
     </div>
   </div>
+  <div id="searchResults" class="search-results" hidden></div>
 </header>
 
 <main class="calwrap">
